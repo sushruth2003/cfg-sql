@@ -1,0 +1,21 @@
+{
+  "grammarReliability": [
+    "sum total_amount from orders in the last 30 hours",
+    "count orders by status in the last 2 days",
+    "average shipping for paid orders in the last day"
+  ],
+  "executionReliability": [
+    {
+      "question": "count orders in the last day",
+      "assertions": ["contains:SELECT", "contains:FROM orders", "contains:LIMIT"]
+    },
+    {
+      "question": "sum total_amount by country in the last day",
+      "assertions": ["contains:sum(total_amount)", "contains:GROUP BY country"]
+    }
+  ],
+  "uxCases": [
+    "show me revenue by payment method for the last 24 hours",
+    "what are the top states by order count this week"
+  ]
+}
