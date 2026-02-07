@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run --coverage",
     "test:watch": "vitest",
-    "evals": "tsx evals/run.ts"
+    "evals": "tsx evals/run.ts",
+    "seed:csv": "tsx scripts/generate_orders_csv.ts 2000"
   },
   "dependencies": {
     "@clickhouse/client": "^1.17.0",

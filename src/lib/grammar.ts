@@ -7,11 +7,12 @@ function quoteLiteral(value: string): string {
 export function buildSqlGrammar(schema: SchemaPolicy): string {
   const columns = schema.columns.map((column) => quoteLiteral(column.name)).join(" | ");
   const aggregates = schema.aggregates.map((agg) => quoteLiteral(agg)).join(" | ");
+  const tableLiteral = quoteLiteral(schema.table);
 
   return [
     "start: query",
     "query: \"SELECT\" select_list \"FROM\" table where_clause? group_by_clause? order_by_clause? limit_clause",
-    "table: \"orders\"",
+    `table: ${tableLiteral}`,
     "select_list: select_item (\",\" select_item)*",
     "select_item: column | aggregate_expr",
     "aggregate_expr: agg_func \"(\" column \")\"",
