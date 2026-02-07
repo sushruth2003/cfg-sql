@@ -10,6 +10,31 @@ const requestSchema = z.object({
   maxRows: z.number().int().min(1).max(500).optional(),
 });
 
+function prevalidateQuestion(question: string): { blocked: boolean; reason?: string } {
+  const lowered = question.toLowerCase();
+
+  if (/\bselect\s+\*/i.test(lowered)) {
+    return { blocked: true, reason: "Wildcard selects are blocked. Use explicit columns." };
+  }
+
+  if (/\b(delete|drop|truncate|update|insert|alter|create)\b/i.test(lowered)) {
+    return { blocked: true, reason: "Only SELECT statements are allowed." };
+  }
+
+  const knownColumns = new Set(ORDERS_SCHEMA.columns.map((column) => column.name.toLowerCase()));
+  const snakeCaseTokens = lowered.match(/\b[a-z]+(?:_[a-z]+)+\b/g) ?? [];
+  const unknownTokens = snakeCaseTokens.filter((token) => !knownColumns.has(token));
+
+  if (unknownTokens.length > 0) {
+    return {
+      blocked: true,
+      reason: `Unknown identifier(s): ${Array.from(new Set(unknownTokens)).join(", ")}`,
+    };
+  }
+
+  return { blocked: false };
+}
+
 export async function POST(request: Request) {
   const totalStart = Date.now();
 
@@ -28,6 +53,31 @@ export async function POST(request: Request) {
     }
 
     const { question, maxRows = 100 } = parsed.data;
+    const questionPrecheck = prevalidateQuestion(question);
+    if (questionPrecheck.blocked) {
+      return NextResponse.json(
+        {
+          question,
+          sql: "",
+          grammarValid: false,
+          guardValid: false,
+          timingMs: {
+            llm: 0,
+            db: 0,
+            total: Date.now() - totalStart,
+          },
+          rowCount: 0,
+          columns: [],
+          rows: [],
+          error: {
+            code: "guard_blocked",
+            message: questionPrecheck.reason,
+          },
+        },
+        { status: 400 },
+      );
+    }
+
     const llmStart = Date.now();
     const generation = await generateSql(question, ORDERS_SCHEMA);
     const llmMs = Date.now() - llmStart;

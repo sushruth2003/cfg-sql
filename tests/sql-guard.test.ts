@@ -50,4 +50,12 @@ describe("validateSql", () => {
     const result = validateSql(sql, ORDERS_SCHEMA, 100);
     expect(result.ok).toBe(true);
   });
+
+  it("rejects ordering by non-grouped columns in grouped queries", () => {
+    const sql =
+      "SELECT status,count(order_id) FROM orders WHERE order_ts >= now() - INTERVAL 7 DAY GROUP BY status ORDER BY country DESC LIMIT 100";
+    const result = validateSql(sql, ORDERS_SCHEMA, 100);
+    expect(result.ok).toBe(false);
+    expect(result.reason).toContain("ORDER BY expression must be grouped or aggregated");
+  });
 });

@@ -39,7 +39,7 @@ function getClient() {
 export async function runQuery(sql: string): Promise<QueryResult> {
   const client = getClient();
   const resultSet = await client.query({
-    query: `${sql} FORMAT JSON`,
+    query: sql,
   });
 
   const result = await resultSet.json<{

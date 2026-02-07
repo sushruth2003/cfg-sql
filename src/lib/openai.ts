@@ -68,6 +68,7 @@ export async function generateSql(question: string, schema: SchemaPolicy): Promi
               "If a user mentions statuses like paid/refunded/pending/cancelled, filter using status = 'value'.",
               "For relative time windows, use order_ts >= now() - INTERVAL <N> HOUR or DAY.",
               "Do not use wildcard selects.",
+              "If the query uses GROUP BY, ORDER BY can only use grouped columns or aggregate expressions.",
               "Use only data from this schema:",
               schemaSummary(schema),
             ].join("\n"),

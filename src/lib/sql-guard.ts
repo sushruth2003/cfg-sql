@@ -60,6 +60,38 @@ function extractIdentifiers(sql: string): string[] {
   return [...sql.matchAll(/\b[a-zA-Z_][a-zA-Z0-9_]*\b/g)].map((match) => match[0]);
 }
 
+function splitCommaList(input: string): string[] {
+  return input
+    .split(",")
+    .map((part) => part.trim())
+    .filter((part) => part.length > 0);
+}
+
+function getGroupByColumns(sql: string): Set<string> {
+  const match = sql.match(/\bGROUP\s+BY\s+(.+?)(?=\bORDER\s+BY\b|\bLIMIT\b|$)/i);
+  if (!match) {
+    return new Set();
+  }
+
+  const columns = splitCommaList(match[1]).map((entry) => entry.toLowerCase());
+  return new Set(columns);
+}
+
+function getOrderByExpressions(sql: string): string[] {
+  const match = sql.match(/\bORDER\s+BY\s+(.+?)(?=\bLIMIT\b|$)/i);
+  if (!match) {
+    return [];
+  }
+
+  return splitCommaList(match[1]).map((entry) =>
+    entry.replace(/\s+(ASC|DESC)\s*$/i, "").trim(),
+  );
+}
+
+function isAggregateExpression(expression: string): boolean {
+  return /^(count|sum|avg|min|max)\s*\(/i.test(expression);
+}
+
 function findUnknownIdentifiers(sql: string, schema: SchemaPolicy): string[] {
   const allowedColumns = new Set(schema.columns.map((column) => column.name.toLowerCase()));
   const withoutStrings = sql.replace(/'[^']*'/g, "");
@@ -135,6 +167,23 @@ export function validateSql(sql: string, schema: SchemaPolicy, requestedMaxRows 
 
   if (/\bJOIN\b/i.test(normalized)) {
     return { ok: false, reason: "JOIN is blocked in strict mode." };
+  }
+
+  const groupedColumns = getGroupByColumns(normalized);
+  if (groupedColumns.size > 0) {
+    const orderExpressions = getOrderByExpressions(normalized);
+    for (const expression of orderExpressions) {
+      if (isAggregateExpression(expression)) {
+        continue;
+      }
+
+      if (!groupedColumns.has(expression.toLowerCase())) {
+        return {
+          ok: false,
+          reason: `ORDER BY expression must be grouped or aggregated when GROUP BY is present: ${expression}`,
+        };
+      }
+    }
   }
 
   const unknownIdentifiers = findUnknownIdentifiers(normalized, schema);

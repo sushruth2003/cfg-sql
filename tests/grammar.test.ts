@@ -19,4 +19,9 @@ describe("buildSqlGrammar", () => {
     const grammar = buildSqlGrammar(ORDERS_SCHEMA);
     expect(grammar).toContain("limit_clause: \"LIMIT\" INT");
   });
+
+  it("constrains grouped ORDER BY to grouped column or aggregates", () => {
+    const grammar = buildSqlGrammar(ORDERS_SCHEMA);
+    expect(grammar).toContain('grouped_order_item_status: "status" sort_dir | aggregate_expr sort_dir');
+  });
 });

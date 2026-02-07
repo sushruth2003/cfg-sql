@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run --coverage",
     "test:watch": "vitest",
+    "test:e2e:real": "tsx tests/e2e.real.ts",
     "evals": "tsx evals/run.ts",
     "seed:csv": "tsx scripts/generate_orders_csv.ts 2000"
   },
