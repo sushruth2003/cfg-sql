@@ -2,6 +2,16 @@
 
 This project demonstrates natural-language querying of ClickHouse with GPT-5 constrained by a custom context-free grammar (CFG) via OpenAI custom tools.
 
+## Production Access
+
+- Live app: [https://cfg-sql.vercel.app/](https://cfg-sql.vercel.app/)
+- Recommended reviewer flow:
+  - Open the URL
+  - Run one query from the examples
+  - Inspect `Trace` (SQL + per-query eval)
+  - Run `Live Evals` from the UI
+- If access is blocked by Vercel auth, use the project's deployment protection/bypass settings in Vercel.
+
 ## What it includes
 
 - Next.js app with one UI + one API endpoint
