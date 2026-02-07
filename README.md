@@ -12,6 +12,7 @@ This project demonstrates natural-language querying of ClickHouse with GPT-5 con
   - grammar reliability
   - execution reliability
   - UX-oriented quality score
+- live eval runner in the app UI (`Run Live Evals` button)
 - Unit tests for grammar, guardrails, and model-output extraction
 
 ## Quick start
@@ -51,6 +52,12 @@ npm run test
 npm run evals
 ```
 
+6. Run real-environment E2E checks:
+
+```bash
+npm run test:e2e:real
+```
+
 ## API
 
 `POST /api/query`
@@ -66,6 +73,10 @@ Request body:
 
 Response includes SQL, validation statuses, timing, row count, columns, and rows.
 
+`POST /api/evals`
+
+Runs live eval suites in the backend and returns per-suite + per-case pass/fail results.
+
 ## Data setup
 
 Create an `orders` table in ClickHouse Cloud with at least 1000 rows and columns listed in `src/lib/schema.ts`.
@@ -73,6 +84,10 @@ Create an `orders` table in ClickHouse Cloud with at least 1000 rows and columns
 ## Deployment
 
 Deploy on Vercel and set environment variables in project settings.
+
+## Latest captured evals
+
+See `/Users/sushruth/cfg-sql/docs/live_eval_results.md`.
 
 ## Loom checklist
 

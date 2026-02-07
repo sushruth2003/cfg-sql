@@ -175,3 +175,37 @@ th {
   background: #fff;
   color: var(--ink);
 }
+
+.eval-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 0.75rem;
+  margin-top: 0.8rem;
+}
+
+.eval-card {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 0.75rem;
+  background: #fbfeff;
+}
+
+.eval-card h3 {
+  margin: 0;
+}
+
+.eval-case {
+  border-top: 1px solid var(--line);
+  margin-top: 0.55rem;
+  padding-top: 0.55rem;
+}
+
+.case-pass {
+  color: #0f4d45;
+  font-weight: 700;
+}
+
+.case-fail {
+  color: #7b1c10;
+  font-weight: 700;
+}

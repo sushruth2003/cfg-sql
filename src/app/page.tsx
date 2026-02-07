@@ -15,6 +15,31 @@ type QueryResponse = {
   error?: { code: string; message?: string };
 };
 
+type EvalCaseResult = {
+  question: string;
+  passed: boolean;
+  sql?: string;
+  note?: string;
+  score?: number;
+};
+
+type EvalResult = {
+  name: string;
+  passed: number;
+  total: number;
+  notes: string[];
+  cases: EvalCaseResult[];
+};
+
+type EvalResponse = {
+  ranAt: string;
+  durationMs: number;
+  totalPassed: number;
+  totalCases: number;
+  results: EvalResult[];
+  error?: { code: string; message?: string };
+};
+
 const EXAMPLES = [
   "sum the total_amount for all orders in the last 30 hours",
   "count orders by status in the last 7 days ordered by count descending",
@@ -26,6 +51,9 @@ export default function Home() {
   const [result, setResult] = useState<QueryResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isRunningEvals, setIsRunningEvals] = useState(false);
+  const [evalError, setEvalError] = useState<string | null>(null);
+  const [evals, setEvals] = useState<EvalResponse | null>(null);
 
   async function runQuery() {
     setIsLoading(true);
@@ -49,6 +77,29 @@ export default function Home() {
       setError(caught instanceof Error ? caught.message : "Unexpected error");
     } finally {
       setIsLoading(false);
+    }
+  }
+
+  async function runLiveEvals() {
+    setIsRunningEvals(true);
+    setEvalError(null);
+
+    try {
+      const response = await fetch("/api/evals", {
+        method: "POST",
+      });
+
+      const payload = (await response.json()) as EvalResponse;
+      if (!response.ok) {
+        throw new Error(payload?.error?.message || "Live evals failed");
+      }
+
+      setEvals(payload);
+    } catch (caught) {
+      setEvals(null);
+      setEvalError(caught instanceof Error ? caught.message : "Unexpected eval error");
+    } finally {
+      setIsRunningEvals(false);
     }
   }
 
@@ -83,6 +134,60 @@ export default function Home() {
             </button>
           ))}
         </div>
+      </section>
+
+      <section className="panel">
+        <h2>Live Evals</h2>
+        <p>Run production-like evals from this app against your current local environment.</p>
+        <button type="button" onClick={runLiveEvals} disabled={isRunningEvals}>
+          {isRunningEvals ? "Running live evals..." : "Run Live Evals"}
+        </button>
+
+        {evalError ? <div className="error" style={{ marginTop: "0.6rem" }}>{evalError}</div> : null}
+
+        {evals ? (
+          <div style={{ marginTop: "0.8rem" }}>
+            <div className="metrics">
+              <div className="metric">
+                <div className="label">Passed</div>
+                <div className="value">
+                  {evals.totalPassed}/{evals.totalCases}
+                </div>
+              </div>
+              <div className="metric">
+                <div className="label">Duration ms</div>
+                <div className="value">{evals.durationMs}</div>
+              </div>
+              <div className="metric">
+                <div className="label">Ran at</div>
+                <div className="value">{new Date(evals.ranAt).toLocaleString()}</div>
+              </div>
+            </div>
+
+            <div className="eval-grid">
+              {evals.results.map((suite) => (
+                <div className="eval-card" key={suite.name}>
+                  <h3>{suite.name}</h3>
+                  <div className="badges">
+                    <span className={`badge ${suite.passed === suite.total ? "ok" : "fail"}`}>
+                      {suite.passed}/{suite.total}
+                    </span>
+                  </div>
+                  {suite.cases.map((testCase) => (
+                    <div key={`${suite.name}:${testCase.question}`} className="eval-case">
+                      <div className={testCase.passed ? "case-pass" : "case-fail"}>
+                        {testCase.passed ? "PASS" : "FAIL"} - {testCase.question}
+                      </div>
+                      {testCase.sql ? <pre>{testCase.sql}</pre> : null}
+                      {testCase.score !== undefined ? <div>UX score: {testCase.score}/5</div> : null}
+                      {testCase.note ? <div className="error">{testCase.note}</div> : null}
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : null}
       </section>
 
       {error ? (
