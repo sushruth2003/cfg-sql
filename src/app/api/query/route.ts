@@ -3,6 +3,7 @@ import { z } from "zod";
 import { runQuery } from "@/lib/clickhouse";
 import { generateSql } from "@/lib/openai";
 import { evaluateQuery } from "@/lib/query-eval";
+import { enforceRateLimit } from "@/lib/rate-limit";
 import { ORDERS_SCHEMA } from "@/lib/schema";
 import { normalizeSql, validateSql } from "@/lib/sql-guard";
 
@@ -38,6 +39,25 @@ function prevalidateQuestion(question: string): { blocked: boolean; reason?: str
 
 export async function POST(request: Request) {
   const totalStart = Date.now();
+  const rateLimit = enforceRateLimit(request, "query");
+  if (!rateLimit.allowed) {
+    return NextResponse.json(
+      {
+        error: {
+          code: "rate_limited",
+          message: "Too many query requests. Please try again later.",
+        },
+      },
+      {
+        status: 429,
+        headers: {
+          "Retry-After": String(rateLimit.retryAfterSeconds),
+          "X-RateLimit-Remaining": String(rateLimit.remaining),
+          "X-RateLimit-Reset": String(rateLimit.resetAt),
+        },
+      },
+    );
+  }
 
   try {
     const parsed = requestSchema.safeParse(await request.json());

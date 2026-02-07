@@ -119,6 +119,17 @@ Create an `orders` table in ClickHouse Cloud with at least 1000 rows and columns
 
 Deploy on Vercel and set environment variables in project settings.
 
+### Optional API rate limits (recommended)
+
+To reduce API key abuse on public demos, configure:
+
+- `RATE_LIMIT_QUERY_MAX_REQUESTS` (default: `120`)
+- `RATE_LIMIT_QUERY_WINDOW_SECONDS` (default: `3600`)
+- `RATE_LIMIT_EVAL_MAX_REQUESTS` (default: `12`)
+- `RATE_LIMIT_EVAL_WINDOW_SECONDS` (default: `3600`)
+
+Limits are enforced per client IP and endpoint family (`/api/query` vs `/api/evals`), and return `429` with `Retry-After`.
+
 ## Latest captured evals
 
 See `/Users/sushruth/cfg-sql/docs/live_eval_results.md`.
