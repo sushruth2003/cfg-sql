@@ -7,6 +7,14 @@ type QueryResponse = {
   sql: string;
   grammarValid: boolean;
   guardValid: boolean;
+  queryEval?: {
+    overallScore: number;
+    intentScore: number;
+    safetyScore: number;
+    executionScore: number;
+    clarityScore: number;
+    criteria: { name: string; passed: boolean; detail: string }[];
+  };
   columns: { name: string; type: string }[];
   rows: Record<string, unknown>[];
   rowCount: number;
@@ -136,6 +144,109 @@ export default function Home() {
         </div>
       </section>
 
+      {error ? (
+        <section className="panel">
+          <div className="error">{error}</div>
+        </section>
+      ) : null}
+
+      {result ? (
+        <>
+          <section className="panel">
+            <h2>Trace</h2>
+            <div className="badges">
+              <span className={`badge ${result.grammarValid ? "ok" : "fail"}`}>
+                CFG {result.grammarValid ? "OK" : "FAIL"}
+              </span>
+              <span className={`badge ${result.guardValid ? "ok" : "fail"}`}>
+                Guard {result.guardValid ? "OK" : "FAIL"}
+              </span>
+            </div>
+            <pre>{result.sql}</pre>
+            <div className="metrics" style={{ marginTop: "0.75rem" }}>
+              <div className="metric">
+                <div className="label">LLM ms</div>
+                <div className="value">{result.timingMs.llm}</div>
+              </div>
+              <div className="metric">
+                <div className="label">DB ms</div>
+                <div className="value">{result.timingMs.db}</div>
+              </div>
+              <div className="metric">
+                <div className="label">Total ms</div>
+                <div className="value">{result.timingMs.total}</div>
+              </div>
+              <div className="metric">
+                <div className="label">Rows</div>
+                <div className="value">{result.rowCount}</div>
+              </div>
+            </div>
+            {result.queryEval ? (
+              <div style={{ marginTop: "0.85rem" }}>
+                <h3>Per-query eval</h3>
+                <div className="metrics">
+                  <div className="metric">
+                    <div className="label">Overall</div>
+                    <div className="value">{result.queryEval.overallScore}</div>
+                  </div>
+                  <div className="metric">
+                    <div className="label">Intent</div>
+                    <div className="value">{result.queryEval.intentScore}</div>
+                  </div>
+                  <div className="metric">
+                    <div className="label">Safety</div>
+                    <div className="value">{result.queryEval.safetyScore}</div>
+                  </div>
+                  <div className="metric">
+                    <div className="label">Execution</div>
+                    <div className="value">{result.queryEval.executionScore}</div>
+                  </div>
+                  <div className="metric">
+                    <div className="label">Clarity</div>
+                    <div className="value">{result.queryEval.clarityScore}</div>
+                  </div>
+                </div>
+                <div className="eval-case" style={{ marginTop: "0.65rem" }}>
+                  {result.queryEval.criteria.map((criterion) => (
+                    <div key={`${criterion.name}:${criterion.detail}`}>
+                      <span className={criterion.passed ? "case-pass" : "case-fail"}>
+                        {criterion.passed ? "PASS" : "FAIL"}
+                      </span>
+                      {" - "}
+                      {criterion.name}: {criterion.detail}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+          </section>
+
+          <section className="panel">
+            <h2>Results</h2>
+            <div className="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    {headers.map((header, headerIndex) => (
+                      <th key={`h:${headerIndex}:${header}`}>{header}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {result.rows.slice(0, 100).map((row, index) => (
+                    <tr key={index}>
+                      {headers.map((header, headerIndex) => (
+                        <td key={`c:${index}:${headerIndex}:${header}`}>{String(row[header] ?? "")}</td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </>
+      ) : null}
+
       <section className="panel">
         <h2>Live Evals</h2>
         <p>Run production-like evals from this app against your current local environment.</p>
@@ -189,71 +300,6 @@ export default function Home() {
           </div>
         ) : null}
       </section>
-
-      {error ? (
-        <section className="panel">
-          <div className="error">{error}</div>
-        </section>
-      ) : null}
-
-      {result ? (
-        <>
-          <section className="panel">
-            <h2>Trace</h2>
-            <div className="badges">
-              <span className={`badge ${result.grammarValid ? "ok" : "fail"}`}>
-                CFG {result.grammarValid ? "OK" : "FAIL"}
-              </span>
-              <span className={`badge ${result.guardValid ? "ok" : "fail"}`}>
-                Guard {result.guardValid ? "OK" : "FAIL"}
-              </span>
-            </div>
-            <pre>{result.sql}</pre>
-            <div className="metrics" style={{ marginTop: "0.75rem" }}>
-              <div className="metric">
-                <div className="label">LLM ms</div>
-                <div className="value">{result.timingMs.llm}</div>
-              </div>
-              <div className="metric">
-                <div className="label">DB ms</div>
-                <div className="value">{result.timingMs.db}</div>
-              </div>
-              <div className="metric">
-                <div className="label">Total ms</div>
-                <div className="value">{result.timingMs.total}</div>
-              </div>
-              <div className="metric">
-                <div className="label">Rows</div>
-                <div className="value">{result.rowCount}</div>
-              </div>
-            </div>
-          </section>
-
-          <section className="panel">
-            <h2>Results</h2>
-            <div className="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    {headers.map((header) => (
-                      <th key={header}>{header}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {result.rows.slice(0, 100).map((row, index) => (
-                    <tr key={index}>
-                      {headers.map((header) => (
-                        <td key={header}>{String(row[header] ?? "")}</td>
-                      ))}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </section>
-        </>
-      ) : null}
     </main>
   );
 }

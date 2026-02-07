@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { runQuery } from "@/lib/clickhouse";
 import { generateSql } from "@/lib/openai";
+import { evaluateQuery } from "@/lib/query-eval";
 import { ORDERS_SCHEMA } from "@/lib/schema";
 import { normalizeSql, validateSql } from "@/lib/sql-guard";
 
@@ -55,16 +56,27 @@ export async function POST(request: Request) {
     const { question, maxRows = 100 } = parsed.data;
     const questionPrecheck = prevalidateQuestion(question);
     if (questionPrecheck.blocked) {
+      const totalMs = Date.now() - totalStart;
+      const queryEval = evaluateQuery({
+        question,
+        sql: "",
+        guardValid: false,
+        dbSucceeded: false,
+        rowCount: 0,
+        totalMs,
+      });
+
       return NextResponse.json(
         {
           question,
           sql: "",
           grammarValid: false,
           guardValid: false,
+          queryEval,
           timingMs: {
             llm: 0,
             db: 0,
-            total: Date.now() - totalStart,
+            total: totalMs,
           },
           rowCount: 0,
           columns: [],
@@ -85,16 +97,27 @@ export async function POST(request: Request) {
 
     const guard = validateSql(normalizedSql, ORDERS_SCHEMA, maxRows);
     if (!guard.ok) {
+      const totalMs = Date.now() - totalStart;
+      const queryEval = evaluateQuery({
+        question,
+        sql: normalizedSql,
+        guardValid: false,
+        dbSucceeded: false,
+        rowCount: 0,
+        totalMs,
+      });
+
       return NextResponse.json(
         {
           question,
           sql: normalizedSql,
           grammarValid: true,
           guardValid: false,
+          queryEval,
           timingMs: {
             llm: llmMs,
             db: 0,
-            total: Date.now() - totalStart,
+            total: totalMs,
           },
           rowCount: 0,
           columns: [],
@@ -111,6 +134,15 @@ export async function POST(request: Request) {
     const dbStart = Date.now();
     const result = await runQuery(normalizedSql);
     const dbMs = Date.now() - dbStart;
+    const totalMs = Date.now() - totalStart;
+    const queryEval = evaluateQuery({
+      question,
+      sql: normalizedSql,
+      guardValid: true,
+      dbSucceeded: true,
+      rowCount: result.rowCount,
+      totalMs,
+    });
 
     return NextResponse.json({
       question,
@@ -118,13 +150,14 @@ export async function POST(request: Request) {
       model: generation.model,
       grammarValid: true,
       guardValid: true,
+      queryEval,
       columns: result.columns,
       rows: result.rows,
       rowCount: result.rowCount,
       timingMs: {
         llm: llmMs,
         db: dbMs,
-        total: Date.now() - totalStart,
+        total: totalMs,
       },
     });
   } catch (error) {

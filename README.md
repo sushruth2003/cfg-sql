@@ -73,9 +73,43 @@ Request body:
 
 Response includes SQL, validation statuses, timing, row count, columns, and rows.
 
+`POST /api/query` also returns a per-query eval scorecard under `queryEval`:
+
+- `intentScore` (0-100): checks whether SQL reflects intent signals in the NL prompt.
+  - looks for aggregate intent (`sum`/`count`/`avg`)
+  - ordering intent (`asc`/`desc`, `top`)
+  - time-window intent (`last N hours/days/weeks` -> `order_ts` + `INTERVAL`)
+  - grouping intent (`by <column>` -> `GROUP BY <column>`)
+- `safetyScore` (0-100): checks `SELECT`-only, guard pass, explicit `LIMIT`, no wildcard.
+- `executionScore` (0-100): checks DB execution success, valid row shape, latency under budget.
+- `clarityScore` (0-100): checks whitelisted table usage, concise SQL length, explicit projection.
+- `overallScore`: weighted aggregate:
+  - `0.35 * intentScore`
+  - `0.30 * safetyScore`
+  - `0.20 * executionScore`
+  - `0.15 * clarityScore`
+
 `POST /api/evals`
 
 Runs live eval suites in the backend and returns per-suite + per-case pass/fail results.
+
+### How live eval suites are computed
+
+The live eval button and `npm run evals` use the same shared evaluator (`src/lib/evals.ts`) and `evals/cases.json`.
+
+- `Grammar reliability`
+  - For each prompt: `generateSql` -> `normalizeSql` -> `validateSql`.
+  - Pass if guard validation succeeds.
+- `Execution reliability` (assertion-based)
+  - For each prompt: `generateSql` -> `normalizeSql`.
+  - Pass if all configured `contains:<token>` assertions match the produced SQL.
+- `UX eval` (heuristic score out of 5)
+  - +1 has `LIMIT`
+  - +1 has `WHERE`
+  - +1 has `ORDER BY` or `GROUP BY`
+  - +1 no wildcard `*`
+  - +1 uses `FROM orders`
+  - Pass if score >= 4.
 
 ## Data setup
 
