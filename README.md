@@ -26,7 +26,7 @@ npm install
 
 ```bash
 OPENAI_API_KEY=...
-OPENAI_MODEL=gpt-5-mini
+OPENAI_MODEL=gpt-5
 CLICKHOUSE_URL=https://<host>:8443
 CLICKHOUSE_USERNAME=default
 CLICKHOUSE_PASSWORD=...

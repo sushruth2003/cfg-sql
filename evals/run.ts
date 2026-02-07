@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { generateSql } from "../src/lib/openai";
 import { ORDERS_SCHEMA } from "../src/lib/schema";
-import { validateSql } from "../src/lib/sql-guard";
+import { normalizeSql, validateSql } from "../src/lib/sql-guard";
 
 type CasesFile = {
   grammarReliability: string[];
@@ -39,7 +39,8 @@ async function runGrammarReliability(casesFile: CasesFile): Promise<EvalResult> 
   for (const question of casesFile.grammarReliability) {
     try {
       const generation = await generateSql(question, ORDERS_SCHEMA);
-      const guard = validateSql(generation.sql, ORDERS_SCHEMA, 100);
+      const normalizedSql = normalizeSql(generation.sql, ORDERS_SCHEMA);
+      const guard = validateSql(normalizedSql, ORDERS_SCHEMA, 100);
       if (guard.ok) {
         passed += 1;
       } else {
@@ -65,10 +66,11 @@ async function runExecutionReliability(casesFile: CasesFile): Promise<EvalResult
   for (const testCase of casesFile.executionReliability) {
     try {
       const generation = await generateSql(testCase.question, ORDERS_SCHEMA);
+      const normalizedSql = normalizeSql(generation.sql, ORDERS_SCHEMA);
       const checks = testCase.assertions.every((assertion) => {
         const [kind, expected] = assertion.split(":");
         if (kind === "contains") {
-          return generation.sql.toLowerCase().includes(expected.toLowerCase());
+          return normalizedSql.toLowerCase().includes(expected.toLowerCase());
         }
         return false;
       });
@@ -76,7 +78,7 @@ async function runExecutionReliability(casesFile: CasesFile): Promise<EvalResult
       if (checks) {
         passed += 1;
       } else {
-        notes.push(`[exec] ${testCase.question} => assertion mismatch: ${generation.sql}`);
+        notes.push(`[exec] ${testCase.question} => assertion mismatch: ${normalizedSql}`);
       }
     } catch (error) {
       notes.push(`[exec] ${testCase.question} => error: ${(error as Error).message}`);
@@ -98,11 +100,12 @@ async function runUxEval(casesFile: CasesFile): Promise<EvalResult> {
   for (const question of casesFile.uxCases) {
     try {
       const generation = await generateSql(question, ORDERS_SCHEMA);
-      const uxScore = scoreUx(generation.sql);
+      const normalizedSql = normalizeSql(generation.sql, ORDERS_SCHEMA);
+      const uxScore = scoreUx(normalizedSql);
       if (uxScore >= 4) {
         passed += 1;
       } else {
-        notes.push(`[ux] ${question} => low score ${uxScore}/5: ${generation.sql}`);
+        notes.push(`[ux] ${question} => low score ${uxScore}/5: ${normalizedSql}`);
       }
     } catch (error) {
       notes.push(`[ux] ${question} => error: ${(error as Error).message}`);

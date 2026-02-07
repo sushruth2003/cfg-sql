@@ -49,7 +49,7 @@ export function extractCustomToolSql(output: unknown): string | null {
 export async function generateSql(question: string, schema: SchemaPolicy): Promise<SqlGeneration> {
   const client = getClient();
   const grammar = buildSqlGrammar(schema);
-  const model = process.env.OPENAI_MODEL || "gpt-5-mini";
+  const model = process.env.OPENAI_MODEL || "gpt-5";
 
   const response = await client.responses.create({
     model,
@@ -63,6 +63,11 @@ export async function generateSql(question: string, schema: SchemaPolicy): Promi
               "Translate user questions into strict ClickHouse SQL.",
               "Always call the emit_sql tool exactly once.",
               "Do not explain the query.",
+              "Always include LIMIT and keep it <= 100.",
+              "Quote string literals with single quotes.",
+              "If a user mentions statuses like paid/refunded/pending/cancelled, filter using status = 'value'.",
+              "For relative time windows, use order_ts >= now() - INTERVAL <N> HOUR or DAY.",
+              "Do not use wildcard selects.",
               "Use only data from this schema:",
               schemaSummary(schema),
             ].join("\n"),
@@ -90,7 +95,10 @@ export async function generateSql(question: string, schema: SchemaPolicy): Promi
       type: "custom",
       name: "emit_sql",
     },
-    max_output_tokens: 220,
+    reasoning: {
+      effort: "minimal",
+    },
+    max_output_tokens: 1200,
   });
 
   const sql = extractCustomToolSql(response.output);

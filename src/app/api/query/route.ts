@@ -3,7 +3,7 @@ import { z } from "zod";
 import { runQuery } from "@/lib/clickhouse";
 import { generateSql } from "@/lib/openai";
 import { ORDERS_SCHEMA } from "@/lib/schema";
-import { validateSql } from "@/lib/sql-guard";
+import { normalizeSql, validateSql } from "@/lib/sql-guard";
 
 const requestSchema = z.object({
   question: z.string().min(3).max(400),
@@ -31,13 +31,14 @@ export async function POST(request: Request) {
     const llmStart = Date.now();
     const generation = await generateSql(question, ORDERS_SCHEMA);
     const llmMs = Date.now() - llmStart;
+    const normalizedSql = normalizeSql(generation.sql, ORDERS_SCHEMA);
 
-    const guard = validateSql(generation.sql, ORDERS_SCHEMA, maxRows);
+    const guard = validateSql(normalizedSql, ORDERS_SCHEMA, maxRows);
     if (!guard.ok) {
       return NextResponse.json(
         {
           question,
-          sql: generation.sql,
+          sql: normalizedSql,
           grammarValid: true,
           guardValid: false,
           timingMs: {
@@ -58,12 +59,12 @@ export async function POST(request: Request) {
     }
 
     const dbStart = Date.now();
-    const result = await runQuery(generation.sql);
+    const result = await runQuery(normalizedSql);
     const dbMs = Date.now() - dbStart;
 
     return NextResponse.json({
       question,
-      sql: generation.sql,
+      sql: normalizedSql,
       model: generation.model,
       grammarValid: true,
       guardValid: true,

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ORDERS_SCHEMA } from "@/lib/schema";
-import { validateSql } from "@/lib/sql-guard";
+import { normalizeSql, validateSql } from "@/lib/sql-guard";
 
 describe("validateSql", () => {
   it("accepts a valid strict query", () => {
@@ -36,5 +36,18 @@ describe("validateSql", () => {
     const result = validateSql(sql, ORDERS_SCHEMA, 100);
     expect(result.ok).toBe(false);
     expect(result.reason).toContain("exceeds cap");
+  });
+
+  it("normalizes bare string filters", () => {
+    const sql = "SELECT status FROM orders WHERE status = paid LIMIT 10";
+    expect(normalizeSql(sql, ORDERS_SCHEMA)).toBe(
+      "SELECT status FROM orders WHERE status = 'paid' LIMIT 10",
+    );
+  });
+
+  it("accepts normalized bare string filters", () => {
+    const sql = "SELECT status FROM orders WHERE status = paid LIMIT 10";
+    const result = validateSql(sql, ORDERS_SCHEMA, 100);
+    expect(result.ok).toBe(true);
   });
 });

@@ -62,7 +62,8 @@ function extractIdentifiers(sql: string): string[] {
 
 function findUnknownIdentifiers(sql: string, schema: SchemaPolicy): string[] {
   const allowedColumns = new Set(schema.columns.map((column) => column.name.toLowerCase()));
-  const identifiers = extractIdentifiers(sql);
+  const withoutStrings = sql.replace(/'[^']*'/g, "");
+  const identifiers = extractIdentifiers(withoutStrings);
 
   return identifiers.filter((identifier) => {
     const lower = identifier.toLowerCase();
@@ -75,8 +76,32 @@ function findUnknownIdentifiers(sql: string, schema: SchemaPolicy): string[] {
   });
 }
 
+export function normalizeSql(sql: string, schema: SchemaPolicy): string {
+  const stringColumns = schema.columns
+    .filter((column) => column.type === "string")
+    .map((column) => column.name)
+    .join("|");
+
+  if (!stringColumns) {
+    return sql;
+  }
+
+  const bareStringPattern = new RegExp(
+    `\\b(${stringColumns})\\b\\s*(=|!=)\\s*([a-zA-Z_][a-zA-Z0-9_]*)\\b`,
+    "gi",
+  );
+
+  return sql.replace(bareStringPattern, (_match, column: string, comparator: string, value: string) => {
+    const loweredValue = value.toLowerCase();
+    if (KNOWN_FUNCTIONS.has(loweredValue) || KNOWN_KEYWORDS.has(value.toUpperCase())) {
+      return `${column} ${comparator} ${value}`;
+    }
+    return `${column} ${comparator} '${value}'`;
+  });
+}
+
 export function validateSql(sql: string, schema: SchemaPolicy, requestedMaxRows = 100): GuardResult {
-  const normalized = sql.trim();
+  const normalized = normalizeSql(sql, schema).trim();
   if (!/^SELECT\b/i.test(normalized)) {
     return { ok: false, reason: "Only SELECT statements are allowed." };
   }
